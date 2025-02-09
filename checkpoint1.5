@@ -33,19 +33,6 @@ class IsingModel:
             if dE <= 0 or random.random() < np.exp(-dE / (self.kb * self.temperature)):
                 self.lattice[i, j] *= -1
     
-    def kawasaki_step(self):
-        for _ in range(10):  # Perform a sweep of 10 updates
-            i1, j1 = np.random.randint(0, self.size, 2)
-            i2, j2 = (i1 + np.random.randint(1, self.size)) % self.size, (j1 + np.random.randint(1, self.size)) % self.size
-            if self.lattice[i1, j1] != self.lattice[i2, j2]:
-                neighbors1 = self.lattice[(i1+1) % self.size, j1] + self.lattice[i1, (j1+1) % self.size] + \
-                             self.lattice[(i1-1) % self.size, j1] + self.lattice[i1, (j1-1) % self.size]
-                neighbors2 = self.lattice[(i2+1) % self.size, j2] + self.lattice[i2, (j2+1) % self.size] + \
-                             self.lattice[(i2-1) % self.size, j2] + self.lattice[i2, (j2-1) % self.size]
-                dE = 2 * self.J * (self.lattice[i1, j1] * neighbors1 + self.lattice[i2, j2] * neighbors2)
-                if dE <= 0 or random.random() < np.exp(-dE / (self.kb * self.temperature)):
-                    self.lattice[i1, j1], self.lattice[i2, j2] = self.lattice[i2, j2], self.lattice[i1, j1]
-    
     def simulate(self, temperature_range, steps, dynamics='glauber', equilibration_steps=5000):
         energies = []
         magnetizations = []
@@ -57,36 +44,25 @@ class IsingModel:
             
             # Perform equilibration run without recording data
             for _ in range(equilibration_steps):
-                if dynamics == 'glauber':
-                    self.glauber_step()
-                elif dynamics == 'kawasaki':
-                    self.kawasaki_step()
-
+                self.glauber_step()
+            
             energy_list, magnetization_list = [], []
             
             # Main simulation run after equilibration
             for _ in range(steps):
-                if dynamics == 'glauber':
-                    self.glauber_step()
-                elif dynamics == 'kawasaki':
-                    self.kawasaki_step()
-
+                self.glauber_step()
                 energy_list.append(self.energy())
                 magnetization_list.append(abs(self.magnetization()))
-
-            # Calculate properties at this temperature
+            
             specific_heat = self.specific_heat(energy_list)
             susceptibility = self.susceptibility(magnetization_list)
-
-            # Store average values for plotting later
+            
             energies.append(np.mean(energy_list))
             magnetizations.append(np.mean(magnetization_list))
             specific_heats.append(specific_heat)
             susceptibilities.append(susceptibility)
-
+        
         return np.array(energies), np.array(magnetizations), np.array(specific_heats), np.array(susceptibilities)
-
-
     
     def specific_heat(self, energy_list):
         E_mean = np.mean(energy_list)
@@ -98,17 +74,9 @@ class IsingModel:
         M2_mean = np.mean(np.square(magnetization_list))
         return (M2_mean - M_mean**2) / (self.size**2 * self.kb * self.temperature)
     
-    def bootstrap_error(self, data, num_samples=100):
-        resampled_means = [np.mean(np.random.choice(data, size=len(data), replace=True)) for _ in range(num_samples)]
-        return np.std(resampled_means)
-    '''
-    def save_data(self, filename, data):
-        np.savetxt(filename, data, delimiter=',')
-    '''
     def plot_results(self, temperatures, energies, magnetizations, specific_heats, susceptibilities, title):
         plt.figure(figsize=(15, 10))
 
-        # Plot Average Energy vs Temperature
         plt.subplot(2, 2, 1)
         plt.plot(temperatures, energies, label='Average Energy')
         plt.xlabel('Temperature')
@@ -116,7 +84,6 @@ class IsingModel:
         plt.legend()
         plt.title("Average Energy vs Temperature")
 
-        # Plot Average Magnetization vs Temperature
         plt.subplot(2, 2, 2)
         plt.plot(temperatures, magnetizations, label='Average Absolute Magnetization')
         plt.xlabel('Temperature')
@@ -124,7 +91,6 @@ class IsingModel:
         plt.legend()
         plt.title("Average Absolute Magnetization vs Temperature")
 
-        # Plot Specific Heat vs Temperature
         plt.subplot(2, 2, 3)
         plt.plot(temperatures, specific_heats, label='Specific Heat')
         plt.xlabel('Temperature')
@@ -132,7 +98,6 @@ class IsingModel:
         plt.legend()
         plt.title("Specific Heat vs Temperature")
 
-        # Plot Susceptibility vs Temperature
         plt.subplot(2, 2, 4)
         plt.plot(temperatures, susceptibilities, label='Susceptibility')
         plt.xlabel('Temperature')
@@ -144,19 +109,17 @@ class IsingModel:
         plt.tight_layout()
         plt.show()
 
-# Example usage
-size = 50
-temperature_range = np.arange(1, 3, 0.1)  # Temperature range from 1 to 3 in 0.1 increments
-steps = 10000
-model = 'glauber'
-ising = IsingModel(size, temperature_range[0])  # Set initial temperature for model
-
-# Simulate across the temperature range
-energies, magnetizations, specific_heats, susceptibilities = ising.simulate(temperature_range, steps, model)
-
-# Plot results after all runs
-ising.plot_results(temperature_range, energies, magnetizations, specific_heats, susceptibilities, model)
-
-# Compute and print properties for each temperature
-for temp, specific_heat, susceptibility in zip(temperature_range, specific_heats, susceptibilities):
-    print(f"Temperature: {temp:.2f}, Specific Heat: {specific_heat:.3f}, Susceptibility: {susceptibility:.3f}")
+if __name__ == "__main__":
+    size = 50
+    temperature_range = np.arange(1, 3, 0.1)
+    steps = 10000
+    dynamics = 'glauber'
+    
+    ising = IsingModel(size, temperature_range[0])
+    
+    energies, magnetizations, specific_heats, susceptibilities = ising.simulate(temperature_range, steps, dynamics)
+    
+    ising.plot_results(temperature_range, energies, magnetizations, specific_heats, susceptibilities, dynamics)
+    
+    for temp, specific_heat, susceptibility in zip(temperature_range, specific_heats, susceptibilities):
+        print(f"Temperature: {temp:.2f}, Specific Heat: {specific_heat:.3f}, Susceptibility: {susceptibility:.3f}")
